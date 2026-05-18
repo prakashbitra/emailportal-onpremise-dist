@@ -1,0 +1,71 @@
+version: "3.9"
+
+# ══════════════════════════════════════════════════════════════════
+#  EmailPortal On-Premise — Docker Compose
+#  Usage:
+#    1. Copy .env.template to .env and fill in your values
+#    2. docker compose up -d
+#    3. Open http://YOUR-SERVER-IP:3000 to complete setup
+# ══════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── Application ─────────────────────────────────────────────────
+  app:
+    image: ghcr.io/prakashbitra/emailportal-onpremise:latest
+    container_name: ep_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ep_config:/app/config        # setup wizard writes config here
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # for one-click updates
+    networks:
+      - emailportal
+
+  # ── Background Worker ────────────────────────────────────────────
+  worker:
+    image: ghcr.io/prakashbitra/emailportal-onpremise:latest
+    container_name: ep_worker
+    restart: unless-stopped
+    command: ["node", "worker/index.js"]
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - emailportal
+
+  # ── PostgreSQL (built-in) ────────────────────────────────────────
+  # Remove this section if you are using your own external database server.
+  db:
+    image: postgres:16-alpine
+    container_name: ep_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       emailportal
+      POSTGRES_USER:     emailportal
+      POSTGRES_PASSWORD: CHANGE_ME     # change this + update DATABASE_URL in .env
+    volumes:
+      - ep_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emailportal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - emailportal
+
+volumes:
+  ep_postgres:
+  ep_config:
+
+networks:
+  emailportal:
+    driver: bridge
