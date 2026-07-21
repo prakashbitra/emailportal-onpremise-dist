@@ -1,13 +1,15 @@
 # EmailPortal On-Premise
 
 Self-hosted email marketing platform — campaigns, automations, RSS-to-email, transactional
-API, unsubscribe management, and more, running entirely on your own server.
+API, unsubscribe management, and more, running entirely on your own server. Send through your
+own AWS SES account or any standard SMTP provider (Mailgun, SendGrid, Postmark, or generic/other).
 
 ## Requirements
 
 - A Linux server (any distro) with Docker support — 2 CPU / 4GB RAM minimum recommended
 - Root or sudo access
-- Outbound internet access (to pull Docker images and, optionally, send via AWS SES)
+- Outbound internet access (to pull Docker images and to send email — via your own AWS SES
+  account, or standard SMTP to any provider: Mailgun, SendGrid, Postmark, or generic/other)
 
 ## Install
 
@@ -47,7 +49,8 @@ paste it in — or enter it during the first-run setup wizard below.
 After install, open the printed URL in your browser. The setup wizard walks you through:
 1. Pasting your license key
 2. Creating your admin account
-3. Configuring email sending (AWS SES credentials)
+3. Configuring email sending — bring your own AWS SES account, or point it at standard SMTP
+   (Mailgun, SendGrid, Postmark, or any other SMTP-compatible provider)
 
 ## Updates
 
