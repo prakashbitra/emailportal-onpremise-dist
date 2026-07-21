@@ -1,22 +1,46 @@
-version: "3.9"
-
 # ══════════════════════════════════════════════════════════════════
 #  EmailPortal On-Premise — Docker Compose
 #  Usage:
 #    1. Copy .env.template to .env and fill in your values
 #    2. docker compose up -d
-#    3. Open http://YOUR-SERVER-IP:3000 to complete setup
+#    3. Open http://YOUR-SERVER-IP (Caddy auto-provisions HTTPS if
+#       PUBLIC_DOMAIN in .env is a real, DNS-pointed domain; otherwise
+#       serves plain HTTP)
 # ══════════════════════════════════════════════════════════════════
 
 services:
 
-  # ── Application ─────────────────────────────────────────────────
+  # ── Reverse proxy — Caddy auto-provisions HTTPS via Let's Encrypt when
+  #    PUBLIC_DOMAIN points at this server; falls back to plain HTTP
+  #    otherwise. Fronts both app replicas with automatic failover, so a
+  #    version update (recreate one replica, wait healthy, recreate the
+  #    other) never drops traffic — see Caddyfile.
+  caddy:
+    image: caddy:2-alpine
+    container_name: ep_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_DOMAIN: "${PUBLIC_DOMAIN:-:80}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ep_caddy_data:/data
+      - ep_caddy_config:/config
+    depends_on:
+      - app
+      - app2
+    networks:
+      - emailportal
+
+  # ── Application — 2 replicas for zero-downtime updates ───────────
   app:
     image: ghcr.io/prakashbitra/emailportal-onpremise:latest
     container_name: ep_app
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     env_file:
       - .env
     depends_on:
@@ -24,7 +48,26 @@ services:
         condition: service_healthy
     volumes:
       - ep_config:/app/config        # setup wizard writes config here
-      - /var/run/docker.sock:/var/run/docker.sock:ro  # for one-click updates
+      - /var/run/docker.sock:/var/run/docker.sock  # for one-click updates
+    networks:
+      - emailportal
+
+  app2:
+    image: ghcr.io/prakashbitra/emailportal-onpremise:latest
+    container_name: ep_app2
+    restart: unless-stopped
+    environment:
+      ENABLE_CRON: "false"
+    expose:
+      - "3000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ep_config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - emailportal
 
@@ -64,6 +107,8 @@ services:
 volumes:
   ep_postgres:
   ep_config:
+  ep_caddy_data:
+  ep_caddy_config:
 
 networks:
   emailportal:

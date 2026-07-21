@@ -1,0 +1,20 @@
+# EmailPortal On-Premise — Caddy reverse proxy
+#
+# Fronts both app replicas (app, app2) with automatic HTTPS when
+# PUBLIC_DOMAIN in .env is a real domain pointed at this server via DNS —
+# falls back to plain HTTP on :80 if PUBLIC_DOMAIN is unset (IP-only access).
+#
+# Health checks + automatic failover mean a version update (recreate one
+# replica, wait healthy, recreate the other) never drops traffic — if a
+# request lands on a replica that's mid-restart, Caddy retries the other one
+# automatically before the client ever sees an error.
+
+{$PUBLIC_DOMAIN} {
+	reverse_proxy app:3000 app2:3000 {
+		lb_policy       round_robin
+		health_uri      /api/health
+		health_interval 10s
+		health_timeout  5s
+		fail_duration   5s
+	}
+}
